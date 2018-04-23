@@ -70,8 +70,6 @@ class Fluid:
         nc = self.N_cols
 
         for iter in range(0,20):
-            #print(matrix)
-            #print(iter)
             for i in range(1, nr+1):
                 for j in range(1, nc+1):
                     matrix[i,j] = matrix_0[i,j] + a*(matrix[i-1,j] + matrix[i+1,j] + matrix[i,j+1] + matrix[i,j-1])/(1 + 4*a)
@@ -118,36 +116,27 @@ class Fluid:
 
     def density_step(self, dt):
         self.add_source(self.D, self.D_0, dt)
-        self.D, self.D_0 = self.D_0, self.D#Fluid.swap_mats(self.D, self.D_0)
+        self.D, self.D_0 = self.D_0, self.D
         self.diffuse(self.D, self.D_0, self.diff_coef, 0, dt)
-        self.D, self.D_0 = self.D_0, self.D#Fluid.swap_mats(self.D, self.D_0)
+        self.D, self.D_0 = self.D_0, self.D
         self.advect(self.D, self.D_0, self.U, self.V, 0, dt)
 
     def velocity_step(self, dt):
         self.add_source(self.U, self.U_0, dt)
         self.add_source(self.V, self.V_0, dt)
 
-        self.U_0, self.U = self.U, self.U_0#Fluid.swap_mats(self.U_0, self.U)
+        self.U_0, self.U = self.U, self.U_0
 
         self.diffuse(self.U, self.U_0, self.visc_coef, 1, dt)
-#        print(f.V_0)
-#        print(f.V)
-        self.V_0, self.V = self.V, self.V_0#Fluid.swap_mats(self.V_0, self.V)
+        self.V_0, self.V = self.V, self.V_0
         self.diffuse(self.V, self.V_0, self.visc_coef, 2, dt)
 
         self.project_vel()
-#        print(f.U_0)
-#        print(f.U)
-#        print(f.V_0)
-#        print(f.V)
-#        quit()
 
-        self.U_0, self.U = self.U, self.U_0#Fluid.swap_mats(self.U_0, self.U)
-        self.V_0, self.V = self.V, self.V_0#Fluid.swap_mats(self.V_0, self.V)
+        self.U_0, self.U = self.U, self.U_0
+        self.V_0, self.V = self.V, self.V_0
         self.advect(self.U, self.U_0, self.U_0, self.V_0, 1, dt)
-        #print(f.U_0)
-        #print(f.U)
-        #quit()
+
         self.advect(self.V, self.V_0, self.U_0, self.V_0, 2, dt)
         self.project_vel();
 
@@ -165,24 +154,19 @@ class Fluid:
         self.set_boundry(self.U_0, 0)
 
         for iter in range(0,20):
-
-            #print(iter)
             for i in range(1,nr+1):
                 for j in range(1, nc+1):
                     self.U_0[i,j] = (self.U_0[i,j] + self.U_0[i-1,j] + self.U_0[i+1,j] + self.U_0[i,j-1] + self.U_0[i,j+1])/4
 
             self.set_boundry(self.U_0, 0)
 
-        #print(self.V)
         for i in range(1, nr+1):
             for j in range(1,nc+1):
                 self.U[i,j] -= 0.5*(self.U_0[i+1,j] - self.U_0[i-1,j])/h
                 self.V[i,j] -= 0.5*(self.U_0[i,j+1] - self.U_0[i,j-1])/h
 
-        #print(self.V)
         self.set_boundry(self.U, 1)
         self.set_boundry(self.V, 2)
-        #print(self.V)
 
     @staticmethod
     def swap_mats(m1, m2):
@@ -219,6 +203,49 @@ class Fluid:
 
         self.d_file.close()
 
+    def prepare_u_data(self, num_timestamps):
+        self.d_file = open("u_timestamps.dat", "w")
+
+        self.d_file.write("{} {} {}\n".format(self.N_rows+2, self.N_cols+2, num_timestamps))
+        self.d_file.write("=====\n")
+
+        self.d_file.close()
+
+    def add_u_data(self):
+        n_row = self.N_rows+2
+        n_col = self.N_cols+2
+
+        self.d_file = open("u_timestamps.dat", "a")
+
+        for i in range(0, n_row):
+            for j in range(0, n_col):
+                self.d_file.write("{} ".format(self.U[i,j]))
+            self.d_file.write("\n")
+        self.d_file.write("=====\n")
+
+        self.d_file.close()
+
+    def prepare_v_data(self, num_timestamps):
+        self.d_file = open("v_timestamps.dat", "w")
+
+        self.d_file.write("{} {} {}\n".format(self.N_rows+2, self.N_cols+2, num_timestamps))
+        self.d_file.write("=====\n")
+
+        self.d_file.close()
+
+    def add_v_data(self):
+        n_row = self.N_rows+2
+        n_col = self.N_cols+2
+
+        self.d_file = open("v_timestamps.dat", "a")
+
+        for i in range(0, n_row):
+            for j in range(0, n_col):
+                self.d_file.write("{} ".format(self.V[i,j]))
+            self.d_file.write("\n")
+        self.d_file.write("=====\n")
+
+        self.d_file.close()
 
 def process(f, dt):
     f.U_0[0,int(f.N_cols/2)] = -0.1;
@@ -246,21 +273,31 @@ def init(f):
     f.D_0[int(f.N_rows/5), int(f.N_cols/5)] = 0.1
 
 if __name__ == "__main__":
+
     f = Fluid(100,100, .02, 0.1)
-    steps = 100;
+    steps = 50;
     dt = 0.001;
 
     init(f)
 
     f.prepare_density_data(steps)
+    f.prepare_u_data(steps)
+    f.prepare_v_data(steps)
 
     for i in range(1, steps):
         process(f, dt)
         print("{}%".format(100*i/steps))
         f.add_density_data()
+        f.add_u_data()
+        f.add_v_data()
 
     dh = DataHandler()
     density_data = dh.load_data("density_timestamps.dat")
+    u_data = dh.load_data("u_timestamps.dat")
+    v_data = dh.load_data("v_timestamps.dat")
 
-    anim = AnimGenerator(density_data)
-    anim.show(2, "fluid_sim.mp4")
+    anim_D = AnimGenerator(density_data, 'm')
+    anim_D.show(2, "fluid_sim.mp4")
+
+    # anim_UV = AnimGenerator([u_data, v_data], 'vf')
+    # anim_UV.show(2, "velocity_sim.mp4")
